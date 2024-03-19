@@ -159,8 +159,8 @@ lib.callback.register('e_groups:client:DecideWhoToKick', function(players)
 	for i = 1, #players, 1 do
 		options[#options + 1] = players[i].name
 	end
-	local input = { lib.inputDialog('Select your options',
-		{ createMultiSelectField('Choose one', options) }) }
+	local input = { lib.inputDialog('Invite player!',
+		{ createMultiSelectField('Choose player you want to invite.', options) }) }
 
 	if not input then
 		return
