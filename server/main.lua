@@ -1,5 +1,8 @@
 local groups = {}
-local ESX = exports["es_extended"]:getSharedObject()
+local ESX = nil
+if Config.Framework == "esx" then
+	ESX = exports["es_extended"]:getSharedObject()
+end
 
 -- FUNCTIONS
 
@@ -52,18 +55,34 @@ RegisterNetEvent("e_groups:server:CreateGroup", function()
 		Notify(src, "You already have a group!", "inform")
 		return
 	end
-	local xPlayer = ESX.GetPlayerFromId(src)
-	groups[src] = {
-		groupOwner = src,
-		players = {
-			{
-				name = xPlayer.getName(),
-				id = src
+	if Config.Framework == 'esx' then
+		local xPlayer = ESX.GetPlayerFromId(src)
+		groups[src] = {
+			groupOwner = src,
+			players = {
+				{
+					name = xPlayer.getName(),
+					id = src
+				},
 			},
-		},
-		groupSize = 1,
-		isLocked = false
-	}
+			groupSize = 1,
+			isLocked = false
+		}
+	elseif Config.Framework == 'qb' then
+		local player = exports.qbx_core:GetPlayer(source)
+		local name = ("%s %s"):format(player.PlayerData.charinfo.firstname, player.PlayerData.charinfo.lastname)
+		groups[src] = {
+			groupOwner = src,
+			players = {
+				{
+					name = name,
+					id = src
+				},
+			},
+			groupSize = 1,
+			isLocked = false
+		}
+	end
 	Player(src).state.groups = { ownerid = src }
 	TriggerClientEvent("e_groups:client:createGroup:UI", source, true, true, groups[src].players)
 	Notify(src, "Succesfully created a group!", "inform")
@@ -97,12 +116,22 @@ RegisterNetEvent("e_groups:server:AddMember", function(targetId)
 		Notify(src, "Player is already in some group", "inform")
 		return
 	end
-	local xPlayer = ESX.GetPlayerFromId(src)
+
+	local xPlayer
+	local name
+	if Config.Framework == 'esx' then
+		xPlayer = ESX.GetPlayerFromId(src)
+		name = ESX.GetPlayerFromId(targetId).getName()
+	elseif Config.Framework == 'qb' then
+		xPlayer = exports.qbx_core:GetPlayer(targetId)
+		name = ("%s %s"):format(xPlayer.PlayerData.charinfo.firstname, xPlayer.PlayerData.charinfo.lastname)
+	end
+
 	local accepted = lib.callback.await("e_groups:client:RequestMembership", targetId, xPlayer.getName())
 	if accepted == "confirm" then
 		local group = groups[src].players
 		group[#group + 1] = {
-			name = ESX.GetPlayerFromId(targetId).getName(),
+			name = name,
 			id = targetId
 		}
 		groups[src].groupSize += 1
@@ -110,15 +139,15 @@ RegisterNetEvent("e_groups:server:AddMember", function(targetId)
 		Notify(targetId, ("Joined id:%s group!"):format(src), "inform")
 		Player(targetId).state.groups = { ownerid = src }
 		return
+	else
+		Notify(src, ("Player with id: %s refused your invite!"):format(targetId), "inform"
 	end
-	Notify(src, ("Player with id: %s refused your invite!"):format(targetId), "inform")
 end)
 
 RegisterNetEvent("e_groups:server:RemoveMember", function()
 	local src = source
 	if groups[src].isLocked then
-		Notify(src, "This group is currently doing something.End task before removing player!", "inform")
-		return
+		Notify(src, "This group is currently doing something. End task before removing player!", "inform")
 	end
 	local players = groups[src].players
 	local whoToKick = lib.callback.await('e_groups:client:DecideWhoToKick', source, players)
@@ -159,8 +188,16 @@ end)
 lib.callback.register('e_groups:server:GetPlayerNames', function(source, tempPlayersIds)
 	local tempTable = {}
 	for i = 1, #tempPlayersIds, 1 do
-		local xPlayer = ESX.GetPlayerFromId(tempPlayersIds[i])
-		tempTable[#tempTable + 1] = xPlayer.getName()
+		local xPlayer
+		local name
+		if Config.Framework == 'esx' then
+			xPlayer = ESX.GetPlayerFromId(tempPlayersIds[i])
+			name = xPlayer.getName()
+		elseif Config.Framework == 'qb' then
+			xPlayer = exports.qbx_core:GetPlayer(tempPlayersIds[i])
+			name = ("%s %s"):format(xPlayer.PlayerData.charinfo.firstname, xPlayer.PlayerData.charinfo.lastname)
+		end
+		tempTable[#tempTable + 1] = name
 	end
 	return tempTable
 end)
@@ -203,8 +240,8 @@ AddEventHandler('playerDropped', function(reason)
 						name = group.players[i + 1].name
 					end
 					for _, value in ipairs(group) do
-						Notify(value.id, ("%s left group!"):format(group.players[i].name))
-						Notify(value.id, ("%s is new Owner!"):format(name))
+							Notify(value.id, ("%s left group!"):format(group.players[i].name))
+							Notify(value.id, ("%s is new Owner!"):format(name))
 					end
 					group.players[i].id = nil
 					group.groupSize -= 1
@@ -232,7 +269,6 @@ end)
 lib.callback.register('e_groups:server:isPlayerOwnerOfGroup', function(source)
 	return isPlayerGroupOwner(source)
 end)
-
 
 exports("getGroupOwner", function(id)
 	for key, value in pairs(groups) do
