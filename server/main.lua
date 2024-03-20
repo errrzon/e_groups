@@ -52,6 +52,7 @@ RegisterNetEvent("e_groups:server:CreateGroup", function()
 		Notify(src, "You already have a group!", "inform")
 		return
 	end
+	if Config.Framework == 'esx' then
 	local xPlayer = ESX.GetPlayerFromId(src)
 	groups[src] = {
 		groupOwner = src,
@@ -67,6 +68,24 @@ RegisterNetEvent("e_groups:server:CreateGroup", function()
 	Player(src).state.groups = { ownerid = src }
 	TriggerClientEvent("e_groups:client:createGroup:UI", source, true, true, groups[src].players)
 	Notify(src, "Succesfully created a group!", "inform")
+elseif Config.Framework == 'qb' then
+	local player = exports.qbx_core:GetPlayer(source)
+	local name = ("%s %s"):format(player.PlayerData.charinfo.firstname, player.PlayerData.charinfo.lastname)
+	groups[src] = {
+		groupOwner = src,
+		players = {
+			{
+				name = name,
+				id = src
+			},
+		},
+		groupSize = 1,
+		isLocked = false
+	}
+	Player(src).state.groups = { ownerid = src }
+	TriggerClientEvent("e_groups:client:createGroup:UI", source, true, true, groups[src].players)
+	exports.qbx_core:Notify("Succesfully created a group!", "inform")
+end
 end)
 
 RegisterNetEvent("e_groups:server:RemoveGroup", function()
@@ -97,28 +116,52 @@ RegisterNetEvent("e_groups:server:AddMember", function(targetId)
 		Notify(src, "Player is already in some group", "inform")
 		return
 	end
-	local xPlayer = ESX.GetPlayerFromId(src)
-	local accepted = lib.callback.await("e_groups:client:RequestMembership", targetId, xPlayer.getName())
-	if accepted == "confirm" then
-		local group = groups[src].players
-		group[#group + 1] = {
-			name = ESX.GetPlayerFromId(targetId).getName(),
-			id = targetId
-		}
-		groups[src].groupSize += 1
-		Notify(src, ("Player with id: %s joined your group!"):format(targetId), "inform")
-		Notify(targetId, ("Joined id:%s group!"):format(src), "inform")
-		Player(targetId).state.groups = { ownerid = src }
-		return
-	end
-	Notify(src, ("Player with id: %s refused your invite!"):format(targetId), "inform")
+	if Config.Framework == 'esx' then
+		local xPlayer = ESX.GetPlayerFromId(src)
+		local accepted = lib.callback.await("e_groups:client:RequestMembership", targetId, xPlayer.getName())
+		if accepted == "confirm" then
+			local group = groups[src].players
+			group[#group + 1] = {
+				name = ESX.GetPlayerFromId(targetId).getName(),
+				id = targetId
+			}
+			groups[src].groupSize += 1
+			Notify(src, ("Player with id: %s joined your group!"):format(targetId), "inform")
+			Notify(targetId, ("Joined id:%s group!"):format(src), "inform")
+			Player(targetId).state.groups = { ownerid = src }
+			return
+		end
+		Notify(src, ("Player with id: %s refused your invite!"):format(targetId), "inform")
+	elseif Config.Framework == 'qb' then
+		local xPlayer = exports.qbx_core:GetPlayer(targetId)
+		local name = ("%s %s"):format(xPlayer.PlayerData.charinfo.firstname, xPlayer.PlayerData.charinfo.lastname)
+		local accepted = lib.callback.await("e_groups:client:RequestMembership", targetId, xPlayer.getName())
+		if accepted == "confirm" then
+			local group = groups[src].players
+			group[#group + 1] = {
+				name = name,
+				id = targetId
+			}
+			groups[src].groupSize += 1
+			TriggerClientEvent('QBCore:Notify', src, ("Player with id: %s joined your group!"):format(targetId), "inform")
+			TriggerClientEvent('QBCore:Notify', targetId, ("Joined id:%s group!"):format(src), "inform")
+			Player(targetId).state.groups = { ownerid = src }
+			return
+		end
+		TriggerClientEvent('QBCore:Notify', src, ("Player with id: %s refused your invite!"):format(targetId), "inform")
+ 	end
 end)
 
 RegisterNetEvent("e_groups:server:RemoveMember", function()
 	local src = source
 	if groups[src].isLocked then
-		Notify(src, "This group is currently doing something.End task before removing player!", "inform")
+		if Config.Framework == 'esx' then
+		Notify(src, "This group is currently doing something. End task before removing player!", "inform")
 		return
+		elseif Config.Framework == 'qb' then
+			TriggerClientEvent('QBCore:Notify', src, "This group is currently doing something. End task before removing player!", "inform")
+		return
+		end
 	end
 	local players = groups[src].players
 	local whoToKick = lib.callback.await('e_groups:client:DecideWhoToKick', source, players)
@@ -159,8 +202,14 @@ end)
 lib.callback.register('e_groups:server:GetPlayerNames', function(source, tempPlayersIds)
 	local tempTable = {}
 	for i = 1, #tempPlayersIds, 1 do
-		local xPlayer = ESX.GetPlayerFromId(tempPlayersIds[i])
-		tempTable[#tempTable + 1] = xPlayer.getName()
+		if Config.Framework == 'esx' then
+			local xPlayer = ESX.GetPlayerFromId(tempPlayersIds[i])
+			tempTable[#tempTable + 1] = xPlayer.getName()
+		elseif Config.Framework == 'qb' then
+			local xPlayer = exports.qbx_core:GetPlayer(tempPlayersIds[i])
+			local name = ("%s %s"):format(xPlayer.PlayerData.charinfo.firstname, xPlayer.PlayerData.charinfo.lastname)
+			tempTable[#tempTable + 1] = name
+	end
 	end
 	return tempTable
 end)
@@ -203,8 +252,13 @@ AddEventHandler('playerDropped', function(reason)
 						name = group.players[i + 1].name
 					end
 					for _, value in ipairs(group) do
-						Notify(value.id, ("%s left group!"):format(group.players[i].name))
-						Notify(value.id, ("%s is new Owner!"):format(name))
+						if Config.Framework == 'esx' then
+							Notify(value.id, ("%s left group!"):format(group.players[i].name))
+							Notify(value.id, ("%s is new Owner!"):format(name))
+						elseif Config.Framework == 'qb' then
+							TriggerClientEvent('QBCore:Notify', value.id, ("%s left group!"):format(group.players[i].name))
+							TriggerClientEvent('QBCore:Notify', value.id, ("%s is new Owner!"):format(name))
+						end
 					end
 					group.players[i].id = nil
 					group.groupSize -= 1
@@ -232,7 +286,6 @@ end)
 lib.callback.register('e_groups:server:isPlayerOwnerOfGroup', function(source)
 	return isPlayerGroupOwner(source)
 end)
-
 
 exports("getGroupOwner", function(id)
 	for key, value in pairs(groups) do
