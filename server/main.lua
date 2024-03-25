@@ -51,7 +51,7 @@ RegisterNetEvent("e_groups:server:CreateGroup", function()
 	local src = source
 	local isOwner = isPlayerGroupOwner(src)
 	local isInGroup = isPlayerInGroup(src)
-	if isOwner or isOwner and isInGroup or isInGroup then
+	if isOwner or isInGroup then
 		Notify(src, "You already have a group!", "inform")
 		return
 	end
