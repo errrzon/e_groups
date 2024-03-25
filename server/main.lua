@@ -140,7 +140,7 @@ RegisterNetEvent("e_groups:server:AddMember", function(targetId)
 		Player(targetId).state.groups = { ownerid = src }
 		return
 	else
-		Notify(src, ("Player with id: %s refused your invite!"):format(targetId), "inform"
+		Notify(src, ("Player with id: %s refused your invite!"):format(targetId), "inform")
 	end
 end)
 
