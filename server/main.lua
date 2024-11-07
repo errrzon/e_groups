@@ -167,22 +167,41 @@ RegisterNetEvent("e_groups:server:RemoveMember", function()
 end)
 
 RegisterNetEvent("e_groups:server:LeaveGroup", function()
-	local src = source
-	local ownerid = Player(src).state.groups.ownerid
-	local group = groups[ownerid].players
-	for i = 1, #group, 1 do
-		if group[i].id == src then
-			if groups[src].isLocked then
-				Notify(src, "This group is currently doing something.End task before leaving group!", "inform")
-				return
-			end
-			Notify(src, "You left your current group!", "inform")
-			Notify(ownerid, ("%s left your group!"):format(group[i].name), "inform")
-			group[i] = nil
-			Player(src).state.groups = nil
-			groups[ownerid].groupSize -= 1
-		end
-	end
+    local src = source
+    local ownerid = Player(src).state.groups.ownerid
+    
+    if not ownerid then
+        print("Error: No ownerid found for player " .. src)
+        return
+    end
+    
+    local group = groups[ownerid]
+    
+    if not group then
+        print("Error: No group found for ownerid " .. ownerid)
+        return
+    end
+    
+    if group.isLocked then
+        Notify(src, "This group is currently busy. Complete the task before leaving the group!", "inform")
+        return
+    end
+    
+    local players = group.players
+    local groupSize = group.groupSize
+    
+    for i = 1, groupSize do
+        if players[i] and players[i].id == src then
+            Notify(src, "You left your current group!", "inform")
+            Notify(ownerid, ("%s left your group!"):format(players[i].name), "inform")
+            table.remove(players, i)
+            group.groupSize = groupSize - 1
+            Player(src).state.groups = nil
+            return
+        end
+    end
+    
+    print("Error: Player " .. src .. " not found in group with ownerid " .. ownerid)
 end)
 
 lib.callback.register('e_groups:server:GetPlayerNames', function(source, tempPlayersIds)
